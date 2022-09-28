@@ -1,4 +1,6 @@
+import Crypto
 from Crypto.PublicKey import RSA
+from Crypto import Random
 import hashlib
 
 class Hash:
@@ -49,10 +51,14 @@ class KeyPair:
 
     def genKeyPair():
         #a function that generates keys, which returns an object of the KeyPair class.
-        keyPair = RSA.generate(bits=1024)
-        """print(f"Public key:  (n={hex(keyPair.n)}, e={hex(keyPair.e)})")
-           print(f"Private key: (n={hex(keyPair.n)}, d={hex(keyPair.d)})")"""
-        x = keyPair(keyPair.d,keyPair.e)
+        """keyPair = RSA.generate(bits=1024)
+        #print(f"Public key:  (n={hex(keyPair.n)}, e={hex(keyPair.e)})")
+        #print(f"Private key: (n={hex(keyPair.n)}, d={hex(keyPair.d)})")
+        x = KeyPair(keyPair.d,keyPair.e)"""
+
+        random_generator = Random.new().read
+        key = RSA.generate(1024, random_generator) #generate public and private keys
+        x = KeyPair(key.privateKey,key.publicKey) 
         return x
 
 class Account:
@@ -66,15 +72,15 @@ class Account:
             #an integer value representing the number of coins belongs to the account.
         _publicKey = wallet[0].publicKey
         _hash = Hash.toSHA1(p)
-        self.accountID = _hash.toString()
+        self.accountID = str(_hash)
         self.wallet[0] = wallet
         self.balance = balance
 
     def genAccount():
         #a function that allows you to create an account. It returns an object of the Account class. The first key pair
         #is generated and assigned to the account.
-        #key = KeyPair.genKeyPair()
-        key = RSA.generate(bits=1024)
+        key = KeyPair.genKeyPair()
+        #key = RSA.generate(bits=1024)
         account = Account(key,0)
         return account
 
@@ -86,7 +92,7 @@ class Account:
     def updateBalance(self,_balance):
         #a function that allows to update the state of the user's balance. It takes an integer value as input, and does
         #not return anything.
-        self.balance = _balance
+        self.balance += _balance
 
     def createPaymentOp(self,recipient,amount,index):
         #a function that allows to create a payment operation on behalf of this account to the recipient. Accepts the
@@ -142,12 +148,12 @@ class Operation:
         #(using the public key of the sender of the payment). Returns true/false depending on the results of checking
         #the operation.
         x = self.sender.balance >= self.amount
-        num = self.sender.wallet.length()
+        num = len(self.sender.wallet)
         for i in num:
             y = Signature.verifySignature(self.signature,"baba",self.sender.wallet[i])
-            if(y==True){
-            break()
-            } 
+            if y==True:
+                break
+            
         
         return x && y 
 
@@ -161,7 +167,12 @@ class Transaction:
             #a set of payment operations confirmed in this transaction.
         #nonce (int)
             #a value to protect duplicate transactions with the same operations.
-        Transaction = Hash.toSHA1(setOfOperations.conca)
+        num = len(self.setOfOperations)
+        cont = ""
+        for i in num:
+            cont = cont + str(setOfOperations[i].signature)
+        Transaction = Hash.toSHA1(cont)
+
         self.TransactionID = Transaction.toString()
         self.setOfOperations = setOfOperations
         self.nonce = nonce
@@ -175,15 +186,19 @@ class Transaction:
 
 class Block:
 
-    def __init__(self, blockID, prevHash, setOfTransactions):
+    def __init__(self, prevHash, setOfTransactions):
         #blockID (String)
             #an unique block identifier (the hash value from all other data).
         #prevHash (String)
             #an identifier of the previous block (it is needed to ensure history integrity check).
         #setOfTransactions (Array)
             #a list of transactions confirmed in this block.
-        _blockID = Hash.toSHA1(setOfTransactions.conca)
-        self.blockID = _blockID.toString()
+        num = len(self.setOfTransactions)
+        cont = ""
+        for i in num:
+            cont = cont + str(setOfTransactions[i].TransactionID)
+        _blockID = Hash.toSHA1(cont)
+        self.blockID = str(_blockID)
         self.prevHash = prevHash
         self.setOfTransactions = setOfTransactions
         
@@ -215,12 +230,21 @@ class Blockchain:
 
     def initBlockchain():
         #a function that allows to initialize the blockchain. The genesis block is created and added to the history.
-        return Blockchain()
+        _coinDatabase = {
+            _Account:[Account.genAccount(),],
+            _Balance:[0,]
+        }
+        return Blockchain(_coinDatabase,[],[],1000)
     def getTokenFromFaucet(self, _account, _amount):
         #a function that allows you to get test coins from the faucet. Updates the state of the coinDatabase and the
         #balance of the account that was called by the method.
-        self.coinDatabase._account.updateBalance(_amount)
-        self.coinDatabase.int = 
+        num = len(self.coinDatabase._Account)
+        for i in num:
+            if _account == self.coinDatabase._Account[i]:
+                break
+        self.coinDatabase._Account[i].updateBalance(_amount)
+        self.coinDatabase._Balance[i] += _amount 
+        self.faucetCoins -= _amount
 
     def validateBlock(self, _block):
         #a function that allows you to make a check and add a block to the history.
@@ -228,3 +252,38 @@ class Blockchain:
     def showCoinDatabase(self):
         #a function that allows you to get the current state of accounts and balances.
         print(self.coinDatabase)
+
+class Voting:
+
+    def __init__(self, initiator, prop1,prop2,participants,count1,count2,winner):
+        #initiator    [Account]      : account which lauch the vote
+        #prop1        [String]       : First Proposal
+        #prop2        [String]       : Second Proposal
+        #participants [Account List] : List of all voters
+        #count1       [int]          : Proposal 1 count
+        #count2       [int]          : Proposal 2 count
+        #winner       [int]          : 1 if (count1>count2) or 2 if(count1<count2)
+        self.initiator = initiator
+        self.participants = participants
+        self.prop1 = prop1
+        self.prop2 = prop2
+        self.count1 = count1
+        self.count2 = count2
+
+    def initVot(account,prop1,prop2):
+        x = Voting(account,prop1,prop2,[],0,0,0)
+        return x
+
+    def voting(self,prop,_account):
+        if prop == prop1:
+            self.count1 += 1
+        if prop == prop2:
+            self.count2 += 1
+        self.participants.push(_account)
+
+    def winner(self):
+        if self.count1 > self.count2 :
+            self.winner = count2
+
+        if self.count1 < self.count2 :
+            self.winner = count2
